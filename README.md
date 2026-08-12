@@ -14,6 +14,16 @@ An intelligent, multi-stage recruitment and candidate screening agent powered by
 
 ---
 
+🛠️ Tech Stack
+Agent Orchestration: LangGraph, LangChain
+
+LLM Engine: OpenRouter API (openai/gpt-4o-mini) via OpenAI SDK
+
+Search & Embeddings: sentence-transformers, rank-bm25, pydantic
+
+Interface: Streamlit
+---
+
 ## 🏗️ Agent Workflow Topology
 
 ```text
