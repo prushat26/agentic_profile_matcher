@@ -32,18 +32,23 @@ graph TD
 
 ## 📂 Project Structure
 
-agentic_profile_match/
-├── app.py                   # Streamlit UI & Stateful Chat Router
-├── matching_agent.py        # LangGraph Workflow Definition & Nodes
-├── job_matcher.py           # ChromaDB Vector Query Engine & Hybrid Scoring
-├── resume_rag.py            # PDF Parsing & Vector Database Builder
-├── graph.py                 # Helper script to export Mermaid workflow diagram
-├── chroma_db/               # Persistent ChromaDB storage (auto-created)
-├── resumes/                 # Directory containing candidate PDF resumes
-├── .env                     # Environment variables (OpenAI API keys)
-├── requirements.txt         # Project dependencies
-├── workflow_graph.mmd       # Mermaid workflow graph logic
-└── README.md                # Project documentation
+```mermaid
+mindmap
+  root((agentic_profile_match/))
+    app.py["app.py (Streamlit UI & Chat)"]
+    matching_agent.py["matching_agent.py (LangGraph Workflow)"]
+    job_matcher.py["job_matcher.py (Vector Engine & Scoring)"]
+    resume_rag.py["resume_rag.py (PDF Parsing & DB Builder)"]
+    graph.py["graph.py (Mermaid Export Script)"]
+    workflow_graph.mmd["workflow_graph.mmd (Graph Logic)"]
+    Directories
+      chroma_db["chroma_db/ (Vector Store)"]
+      resumes["resumes/ (Candidate PDFs)"]
+    Config
+      .env[".env (API Keys)"]
+      requirements.txt["requirements.txt (Dependencies)"]
+      README.md["README.md (Documentation)"]
+```
 
 🚀 Quickstart
 ```Bash
