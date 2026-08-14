@@ -20,16 +20,14 @@ The initial screening pipeline follows a deterministic state machine managed by 
 
 ```mermaid
 graph TD
-    %% Custom Styling
-    classDef nodeStyle fill:#2b6cb0,stroke:#63b3ed,stroke-width:2px,color:#fff;
-    classDef startEnd fill:#2d3748,stroke:#cbd5e0,stroke-width:2px,color:#fff;
-
-    START([START]) :::startEnd --> parse_jd_node[Parse Job Description] :::nodeStyle
-    parse_jd_node --> extract_requirements_node[Extract Key Requirements] :::nodeStyle
-    extract_requirements_node --> search_resumes_node[Vector Search via ChromaDB] :::nodeStyle
-    search_resumes_node --> rank_candidates_node[Hybrid Scoring & Cross-Encoding] :::nodeStyle
-    rank_candidates_node --> generate_report_node[Generate Shortlist Report] :::nodeStyle
-    generate_report_node --> END([END]) :::startEnd
+    __start__([__start__]) --> parse_jd[parse_jd]
+    parse_jd --> extract_requirements[extract_requirements]
+    extract_requirements --> search_resumes[search_resumes]
+    search_resumes --> rank_candidates[rank_candidates]
+    rank_candidates --> generate_report[generate_report]
+    generate_report -. end .-> __end__([__end__])
+    generate_report -. human_feedback_loop .-> process_feedback[process_feedback]
+    process_feedback --> search_resumes
 ```
 
 ## 📂 Project Structure
