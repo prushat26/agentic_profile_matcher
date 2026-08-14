@@ -1,0 +1,12 @@
+langgraph
+langchain-core
+langchain-openai
+openai
+pydantic
+sentence-transformers
+rank-bm25
+chromadb
+pandas
+numpy
+streamlit
+python-dotenv
