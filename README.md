@@ -19,39 +19,17 @@ An intelligent, multi-stage recruitment assistant powered by **LangGraph**, **Ch
 The initial screening pipeline follows a deterministic state machine managed by LangGraph:
 
 ```mermaid
----
-config:
-  flowchart:
-    curve: linear
----
-graph TD;
-	__start__([<p>__start__</p>]):::first
-	parse_jd(parse_jd)
-	extract_requirements(extract_requirements)
-	search_resumes(search_resumes)
-	rank_candidates(rank_candidates)
-	generate_report(generate_report)
-	process_feedback(process_feedback)
-	__end__([<p>__end__</p>]):::last
-	__start__ --> parse_jd;
-	extract_requirements --> search_resumes;
-	generate_report -. &nbsp;end&nbsp; .-> __end__;
-	generate_report -. &nbsp;human_feedback_loop&nbsp; .-> process_feedback;
-	parse_jd --> extract_requirements;
-	process_feedback --> search_resumes;
-	rank_candidates --> generate_report;
-	search_resumes --> rank_candidates;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
-
 graph TD
-    START([START]) --> parse_jd_node
-    parse_jd_node --> extract_requirements_node
-    extract_requirements_node --> search_resumes_node
-    search_resumes_node --> rank_candidates_node
-    rank_candidates_node --> generate_report_node
-    generate_report_node --> END([END])
+    %% Custom Styling
+    classDef nodeStyle fill:#2b6cb0,stroke:#63b3ed,stroke-width:2px,color:#fff;
+    classDef startEnd fill:#2d3748,stroke:#cbd5e0,stroke-width:2px,color:#fff;
+
+    START([START]) :::startEnd --> parse_jd_node[Parse Job Description] :::nodeStyle
+    parse_jd_node --> extract_requirements_node[Extract Key Requirements] :::nodeStyle
+    extract_requirements_node --> search_resumes_node[Vector Search via ChromaDB] :::nodeStyle
+    search_resumes_node --> rank_candidates_node[Hybrid Scoring & Cross-Encoding] :::nodeStyle
+    rank_candidates_node --> generate_report_node[Generate Shortlist Report] :::nodeStyle
+    generate_report_node --> END([END]) :::startEnd
 ```
 
 ## 📂 Project Structure
