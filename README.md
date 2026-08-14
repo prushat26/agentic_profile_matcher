@@ -1,85 +1,88 @@
-# 🤝 AI Talent Matcher: LangGraph Resume Matching Agent
+# 🤖 Agentic Candidate Matching & Screening System
 
-An intelligent, multi-stage recruitment and candidate screening agent powered by **LangGraph**, **Hybrid RAG Search (ChromaDB + BM25 + Bi-Encoder RRF)**, and **Cross-Encoder Reranking**. Features a dynamic Streamlit chat interface for real-time requirement adjustments, candidate head-to-head comparisons, and automated match explainability reports.
+An intelligent, multi-stage recruitment assistant powered by **LangGraph**, **ChromaDB**, **Streamlit**, and **OpenAI**. The system ingests PDF candidate resumes into a persistent vector database, executes dynamic hybrid searches against job descriptions, and provides an interactive conversational interface for candidate screening, comparison, and criteria adjustment.
+
+---
 
 ## 🌟 Key Features
-* **🤖 LangGraph State Architecture:** Directed state machine controlling end-to-end recruitment workflows with human-in-the-loop feedback loops.
-* **🔍 Hybrid RAG Retrieval:** Combines local ChromaDB vector database, sparse keyword matching (BM25), and dense semantic search fused via Reciprocal Rank Fusion (RRF).
-* **🎯 High-Precision Reranking:** Fine-grained candidate re-ranking using a Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) to capture deep requirement-resume interactions.
-* **💬 Mid-Conversation Refinement:** Interactive chat interface allows hiring managers to adjust criteria mid-flight and immediately re-evaluate candidates.
-* **📊 Multi-Round Screening & Explainability:** Automatically generates candidate match reports, highlights strengths/gaps, produces head-to-head comparisons, and suggests tailored interview questions.
 
-## 🛠️ Tech Stack
-* **Agent Orchestration:** LangGraph, LangChain
-* **LLM Engine:** OpenRouter API (`openai/gpt-4o-mini`) via OpenAI SDK
-* **Vector Store & Retrieval:** ChromaDB, `sentence-transformers`, `rank-bm25`
-* **Validation & Tools:** Pydantic, FileSystem Tools (`fs_tools.py`)
-* **Interface:** Streamlit
+* **Automatic PDF Ingestion**: Auto-indexes resumes from `./resumes/` into ChromaDB on startup.
+* **Flexible JD Input**: Supports manual text entry, `.txt`/`.pdf`/`.md` file uploads, or direct local file system paths (`file_sys_assist`).
+* **Hybrid Vector & Skill Matching**: Blends dense semantic vector retrieval (L2/Cosine distance) with rule-based skill bonus scoring.
+* **LangGraph Pipeline Execution**: Structured, multi-node agent workflow for initial parsing, extraction, retrieval, re-ranking, and report generation.
+* **Stateful Conversational Chat**: Enables natural language candidate comparisons, relative rank justifications ("Why did Candidate X beat Candidate Y?"), and multi-round screening (Hire/No-Hire recommendations) with persistent context memory.
 
-## 📁 Repository Structure
-```text
-agentic_profile_match/
-├── data/resumes/         # PDF & text resume files
-├── src/
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   └── matching_agent.py # LangGraph State Machine (Choice A)
-│   └── tools/
-│       ├── __init__.py
-│       ├── fs_tools.py      # File system operations (Milestone 1)
-│       ├── resume_rag.py    # Ingestion & ChromaDB (Milestone 2)
-│       ├── job_matcher.py   # Hybrid Search & Cross-Encoder (Milestone 2)
-│       └── llm_tools.py     # Pydantic schemas & comparison tools
-├── app.py                   # Streamlit Interactive UI
-├── test_scenarios.py        # 5 Evaluation Flows
-├── requirements.txt
-└── .env
 ---
+
+## 📐 LangGraph Workflow Diagram
+
+The initial screening pipeline follows a deterministic state machine managed by LangGraph:
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	parse_jd(parse_jd)
+	extract_requirements(extract_requirements)
+	search_resumes(search_resumes)
+	rank_candidates(rank_candidates)
+	generate_report(generate_report)
+	process_feedback(process_feedback)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> parse_jd;
+	extract_requirements --> search_resumes;
+	generate_report -. &nbsp;end&nbsp; .-> __end__;
+	generate_report -. &nbsp;human_feedback_loop&nbsp; .-> process_feedback;
+	parse_jd --> extract_requirements;
+	process_feedback --> search_resumes;
+	rank_candidates --> generate_report;
+	search_resumes --> rank_candidates;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
+graph TD
+    START([START]) --> parse_jd_node
+    parse_jd_node --> extract_requirements_node
+    extract_requirements_node --> search_resumes_node
+    search_resumes_node --> rank_candidates_node
+    rank_candidates_node --> generate_report_node
+    generate_report_node --> END([END])
 ```
-## 🏗️ Agent Workflow Topology
 
+## 📂 Project Structure
 
-                  ┌───────────────────────────────┐
-                  │            START              │
-                  └──────────────┬────────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │    Parse JD & Extract Req     │
-                  └──────────────┬────────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │      Search & Hybrid RAG      │
-                  │   (BM25 + Bi-Encoder + RRF)   │
-                  └──────────────┬────────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │    Rank & Rerank Candidates   │
-                  │        (Cross-Encoder)        │
-                  └──────────────┬────────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │     Generate Match Report     │
-                  └──────────────┬────────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │    Human Feedback Loop /      │
-                  │    Refinement Routing         │
-                  └──────────────┬────────────────┘
-                                 │
-                   ┌─────────────┴─────────────┐
-                   │                           │
-                   ▼                           ▼
-          [Refine Query]                  [Approved]
-                   │                           │
-                   └─────────────┬─────────────┘
-                                 │
-                                 ▼
-                  ┌───────────────────────────────┐
-                  │             END               │
-                  └───────────────────────────────┘
-Interface: Streamlit
+agentic_profile_match/
+├── app.py                   # Streamlit UI & Stateful Chat Router
+├── matching_agent.py        # LangGraph Workflow Definition & Nodes
+├── job_matcher.py           # ChromaDB Vector Query Engine & Hybrid Scoring
+├── resume_rag.py            # PDF Parsing & Vector Database Builder
+├── graph.py                 # Helper script to export Mermaid workflow diagram
+├── chroma_db/               # Persistent ChromaDB storage (auto-created)
+├── resumes/                 # Directory containing candidate PDF resumes
+├── .env                     # Environment variables (OpenAI API keys)
+├── requirements.txt         # Project dependencies
+├── workflow_graph.mmd       # Mermaid workflow graph logic
+└── README.md                # Project documentation
+
+🚀 Quickstart
+```Bash
+# Clone repository
+git clone [https://github.com/YOUR_USERNAME/agentic_profile_match.git](https://github.com/YOUR_USERNAME/agentic_profile_match.git)
+cd agentic_profile_match
+
+# Setup environment
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Add OPENAI_API_KEY to .env
+echo "OPENAI_API_KEY=your_key_here" > .env
+
+# Run Streamlit Application
+streamlit run app.py
+```

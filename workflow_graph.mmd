@@ -1,0 +1,25 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	parse_jd(parse_jd)
+	extract_requirements(extract_requirements)
+	search_resumes(search_resumes)
+	rank_candidates(rank_candidates)
+	generate_report(generate_report)
+	process_feedback(process_feedback)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> parse_jd;
+	extract_requirements --> search_resumes;
+	generate_report -. &nbsp;end&nbsp; .-> __end__;
+	generate_report -. &nbsp;human_feedback_loop&nbsp; .-> process_feedback;
+	parse_jd --> extract_requirements;
+	process_feedback --> search_resumes;
+	rank_candidates --> generate_report;
+	search_resumes --> rank_candidates;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc

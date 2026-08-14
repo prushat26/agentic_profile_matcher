@@ -1,230 +1,127 @@
-import os
-import json
+"""
+app.py - Streamlit Interface with Automatic Resume Ingestion
+"""
+
 import streamlit as st
+import chromadb
+import json
 
-# Import LangGraph compiled workflow and tool helpers from src/agent/matching_agent
-from src.agent.matching_agent import (
-    build_matching_agent,
-    compare_candidates,
-    generate_interview_questions,
-    AgentState
-)
-from src.tools.fs_tools import list_files, read_file
+# Import functions from existing untouched modules
+from resume_rag import build_vector_db
+from openai import OpenAI
+from matching_agent import agent_graph, compare_candidates, generate_interview_questions, process_feedback_node, rank_candidates_node, generate_report_node
+
+# Direct OpenAI client initialization (uses OPENAI_API_KEY from .env)
+openai_client = OpenAI()
+
+st.set_page_config(page_title="RAG Candidate Matching Agent", layout="wide")
 
 # ==========================================
-# 1. PAGE CONFIG & STYLING
+# AUTOMATIC INGESTION CHECK ON APP STARTUP
 # ==========================================
-st.set_page_config(
-    page_title="AI Talent Matcher",
-    page_icon="🤝",
-    layout="wide"
-)
-
-st.title("🤝 AI Talent Matcher: LangGraph Recruitment Agent")
-st.caption("Powered by LangGraph, Hybrid RAG Search (ChromaDB + BM25), and Cross-Encoder Reranking")
-
-# Initialize Agent Graph
 @st.cache_resource
-def get_compiled_agent():
-    return build_matching_agent()
+def initialize_system():
+    chroma_client = chromadb.PersistentClient(path="./chroma_db")
+    collection = chroma_client.get_or_create_collection(name="resumes")
+    
+    # Auto-run build_vector_db from your resume_rag.py if collection is empty
+    if collection.count() == 0:
+        with st.spinner("Initializing vector store & ingesting PDF resumes from resumes/..."):
+            build_vector_db(resumes_dir="resumes")
+            
+    return collection.count()
 
-agent_app = get_compiled_agent()
+indexed_count = initialize_system()
 
+st.title("🤖 Candidate Matching & Screening Agent")
+st.caption(f"Status: **{indexed_count} Resume(s) active in Vector Database**")
 
-# ==========================================
-# 2. SESSION STATE INITIALIZATION
-# ==========================================
+# Initialize session state variables
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 if "agent_state" not in st.session_state:
-    st.session_state.agent_state = {
-        "messages": [],
-        "raw_jd": "",
-        "must_have_reqs": [],
-        "nice_have_reqs": [],
-        "candidate_pool": [],
-        "shortlist": [],
-        "reasoning": {},
-        "report": "",
-        "human_feedback": None,
-        "screening_round": 1
-    }
+    st.session_state.agent_state = None
 
-if "candidate_pool_loaded" not in st.session_state:
-    # Load candidate resumes from data/resumes directory using Milestone 1 tools
-    try:
-        resume_files = list_files("data/resumes")
-        candidates = []
-        for idx, file_path in enumerate(resume_files):
-            content = read_file(file_path)
-            candidate_name = os.path.basename(file_path).replace(".pdf", "").replace(".txt", "").replace("_", " ").title()
-            candidates.append({
-                "id": f"cand_{idx+1}",
-                "name": candidate_name,
-                "file_path": file_path,
-                "content": content
-            })
-        st.session_state.agent_state["candidate_pool"] = candidates
-        st.session_state.candidate_pool_loaded = True
-    except Exception as e:
-        st.warning(f"Could not automatically load resumes from data/resumes: {e}")
-        st.session_state.agent_state["candidate_pool"] = []
+# Sidebar Controls
+st.sidebar.header("Job Specification Input")
+sample_jd = st.sidebar.text_area(
+    "Paste Job Description:", 
+    height=250, 
+    value="Looking for a Python Developer with Machine Learning experience, React, and at least 3 years of experience."
+)
 
+if st.sidebar.button("Run Full Agent Pipeline"):
+    if indexed_count == 0:
+        st.error("⚠️ No resumes indexed! Please ensure PDF files exist in 'resumes/' directory.")
+    else:
+        with st.spinner("Executing LangGraph agent workflow..."):
+            initial_input = {
+                "messages": [("user", sample_jd)],
+                "jd_raw": sample_jd,
+                "human_feedback": "",
+                "feedback_turns": 0
+            }
+            res = agent_graph.invoke(initial_input)
+            st.session_state.agent_state = res
+            st.session_state.messages.append({"role": "assistant", "content": res.get("final_report", "No report generated.")})
 
-# ==========================================
-# 3. SIDEBAR: CONTROL & CONFIGURATION
-# ==========================================
-with st.sidebar:
-    st.header("⚙️ Pipeline Controls")
-    
-    st.subheader("1. Job Description")
-    default_jd = """Senior Full Stack Engineer
-Must have:
-- 3+ years experience with Python and React
-- Demonstrated experience in building RAG or AI workflows
-- Strong knowledge of PostgreSQL and vector databases
+# Render conversation history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-Nice to have:
-- Experience with LangGraph and Streamlit
-- Docker and Cloud Deployment (AWS)"""
-    
-    raw_jd_input = st.text_area("Paste Job Description:", value=default_jd, height=200)
-    
-    st.markdown("---")
-    st.subheader("2. Multi-Round Screening")
-    current_round = st.session_state.agent_state.get("screening_round", 1)
-    st.info(f"**Current Round:** Round {current_round}")
-    
-    col_r1, col_r2 = st.columns(2)
-    with col_r1:
-        if st.button("Round 1 (Top 10)"):
-            st.session_state.agent_state["screening_round"] = 1
-            st.rerun()
-    with col_r2:
-        if st.button("Round 2 (Deep 3)"):
-            st.session_state.agent_state["screening_round"] = 2
-            st.rerun()
+# Natural Language Query Input
+if user_prompt := st.chat_input("Ask candidate queries, request comparisons, or adjust requirements..."):
+    st.session_state.messages.append({"role": "user", "content": user_prompt})
+    with st.chat_message("user"):
+        st.markdown(user_prompt)
 
-    st.markdown("---")
-    if st.button("🚀 Run Agent Pipeline", type="primary"):
-        st.session_state.agent_state["raw_jd"] = raw_jd_input
-        with st.spinner("Executing LangGraph Workflow..."):
-            # Run the compiled graph state machine
-            final_output = agent_app.invoke(st.session_state.agent_state)
-            st.session_state.agent_state.update(final_output)
-            st.success("Matching Complete!")
-            st.rerun()
+    if st.session_state.agent_state:
+        state = st.session_state.agent_state
+        shortlist = state.get("shortlist", [])
+        candidate_pool = state.get("candidate_pool", [])
+        reqs = state.get("requirements", {})
 
+        # Build full candidate context for GPT
+        candidates_context = json.dumps(shortlist if shortlist else candidate_pool, indent=2)
 
-# ==========================================
-# 4. MAIN DASHBOARD TABS
-# ==========================================
-tab_chat, tab_report, tab_compare, tab_questions = st.tabs([
-    "💬 Conversational Screening",
-    "📊 Match Report & Explainability",
-    "⚔️ Head-to-Head Comparison",
-    "❓ Interview Question Generator"
-])
+        # Call OpenAI directly for chat turns
+        with st.spinner("Thinking..."):
+            completion = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an expert HR recruitment assistant chatting with a hiring manager. "
+                            "You have full access to the processed candidate pool and job requirements provided in the context. "
+                            "If the user requests updated criteria, new skill priorities, or adjustments, YOU MUST RESCORE AND RE-RANK "
+                            "Maintain state and memory across the entire chat conversation. "
+                            "When the user adjusts criteria or asks to re-rank, calculate NEW revised scores/ranks and "
+                            "REMEMBER those new scores/ranks for all future follow-up questions in this session. "
+                            "Never silently revert to initial baseline scores once a re-ranking or criteria adjustment has occurred."
+                            "Answer user questions dynamically and flexibly. You can compare specific candidates side by side, "
+                            "explain why candidate A beat candidate B, answer deep questions about specific individuals, "
+                            "generate tailored interview questions, or re-rank candidates based on updated requirements. "
+                            "DO NOT output an unprompted 10-candidate shortlist template unless specifically asked. "
+                            "Address the user's explicit question directly and conversationally."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Current Job Requirements:\n{json.dumps(reqs, indent=2)}\n\n"
+                            f"Candidate Data Pool:\n{candidates_context}\n\n"
+                            f"User Prompt: {user_prompt}"
+                        ),
+                    },
+                ],
+                temperature=0.2,
+            )
+            response = completion.choices[0].message.content
 
-
-# ------------------------------------------
-# TAB 1: Conversational Screening & Refinement
-# ------------------------------------------
-with tab_chat:
-    st.subheader("Conversational Candidate Screening")
-    st.caption("Ask natural language queries, refine criteria mid-flight, or inquire about specific candidate rankings.")
-
-    # Display shortlists if available
-    shortlist = st.session_state.agent_state.get("shortlist", [])
-    if shortlist:
-        st.markdown("### 🏆 Current Top Candidate Matches")
-        for rank, cand in enumerate(shortlist, 1):
-            cand_name = cand.get("name", f"Candidate {rank}")
-            reasoning = st.session_state.agent_state.get("reasoning", {}).get(cand_name, "Evaluated by Hybrid RAG & Cross-Encoder")
-            with st.expander(f"#{rank} - {cand_name}"):
-                st.write(f"**Reasoning:** {reasoning}")
-                st.text(cand.get("content", "")[:300] + "...")
-
-    st.markdown("---")
-    
-    # Chat History Container
-    for msg in st.session_state.agent_state.get("messages", []):
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    # User Input Chat Prompt
-    if user_prompt := st.chat_input("e.g. Find me candidates with React and 3+ years experience or compare top matches"):
-        # Append user message
-        st.session_state.agent_state["messages"].append({"role": "user", "content": user_prompt})
-        with st.chat_message("user"):
-            st.write(user_prompt)
-
-        # Trigger iterative refinement back into graph loop
-        st.session_state.agent_state["human_feedback"] = user_prompt
-        
+        st.session_state.messages.append({"role": "assistant", "content": response})
         with st.chat_message("assistant"):
-            with st.spinner("Re-evaluating pipeline..."):
-                updated_state = agent_app.invoke(st.session_state.agent_state)
-                st.session_state.agent_state.update(updated_state)
-                st.rerun()
-
-
-# ------------------------------------------
-# TAB 2: Match Report & Explainability
-# ------------------------------------------
-with tab_report:
-    st.subheader("Executive Candidate Evaluation Report")
-    report = st.session_state.agent_state.get("report", "")
-    if report:
-        st.markdown(report)
+            st.markdown(response)
     else:
-        st.info("Run the agent pipeline from the sidebar to generate an executive match report.")
-
-
-# ------------------------------------------
-# TAB 3: Head-to-Head Comparison
-# ------------------------------------------
-with tab_compare:
-    st.subheader("Head-to-Head Candidate Comparison")
-    candidate_pool = st.session_state.agent_state.get("candidate_pool", [])
-    
-    if candidate_pool:
-        options = [c.get("name", c.get("id")) for c in candidate_pool]
-        selected_candidates = st.multiselect("Select 2 or more candidates to compare:", options)
-        
-        if st.button("Compare Selected Candidates"):
-            if len(selected_candidates) >= 2:
-                with st.spinner("Generating side-by-side comparison..."):
-                    comparison_result = compare_candidates(
-                        candidate_ids=selected_candidates,
-                        candidate_pool=candidate_pool
-                    )
-                    st.markdown("### Comparison Results")
-                    st.markdown(comparison_result)
-            else:
-                st.warning("Please select at least 2 candidates for comparison.")
-    else:
-        st.info("No candidate profiles loaded.")
-
-
-# ------------------------------------------
-# TAB 4: Interview Question Generator
-# ------------------------------------------
-with tab_questions:
-    st.subheader("Tailored Interview Question Generator")
-    candidate_pool = st.session_state.agent_state.get("candidate_pool", [])
-    reqs = st.session_state.agent_state.get("must_have_reqs", [])
-
-    if candidate_pool:
-        options = [c.get("name", c.get("id")) for c in candidate_pool]
-        selected_cand = st.selectbox("Select Candidate:", options)
-        
-        if st.button("Generate Screening Questions"):
-            with st.spinner("Creating interview questions..."):
-                questions = generate_interview_questions(
-                    candidate_id=selected_cand,
-                    candidate_pool=candidate_pool,
-                    requirements=reqs
-                )
-                st.markdown(f"### Screening Questions for {selected_cand}")
-                st.markdown(questions)
-    else:
-        st.info("No candidate profiles loaded.")
+        st.warning("Please run the initial agent pipeline first from the sidebar!")
