@@ -32,6 +32,7 @@ graph TD
 
 ## 📂 Project Structure
 
+```text
 agentic_profile_match/
 ├── app.py                 # Streamlit UI & Stateful Chat Router
 ├── matching_agent.py      # LangGraph Workflow Definition & Nodes
@@ -44,6 +45,7 @@ agentic_profile_match/
 ├── requirements.txt       # Project dependencies
 ├── workflow_graph.mmd     # Mermaid workflow graph logic
 └── README.md              # Project documentation
+```
 
 ## 🚀 Quickstart
 ```Bash
