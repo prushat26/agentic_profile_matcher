@@ -32,22 +32,18 @@ graph TD
 
 ## 📂 Project Structure
 
-```mermaid
-graph LR
-    Root[📁 agentic_profile_match/]
-    
-    Root --> App["📄 app.py <br/><i>Streamlit UI & Stateful Chat Router</i>"]
-    Root --> Matching["📄 matching_agent.py <br/><i>LangGraph Workflow Definition & Nodes</i>"]
-    Root --> JobMatcher["📄 job_matcher.py <br/><i>ChromaDB Vector Query Engine & Hybrid Scoring</i>"]
-    Root --> ResumeRAG["📄 resume_rag.py <br/><i>PDF Parsing & Vector Database Builder</i>"]
-    Root --> GraphPy["📄 graph.py <br/><i>Helper script to export Mermaid workflow diagram</i>"]
-    Root --> ChromaDB["📁 chroma_db/ <br/><i>Persistent ChromaDB storage (auto-created)</i>"]
-    Root --> Resumes["📁 resumes/ <br/><i>Directory containing candidate PDF resumes</i>"]
-    Root --> Env["📄 .env <br/><i>Environment variables (OpenAI API keys)</i>"]
-    Root --> Requirements["📄 requirements.txt <br/><i>Project dependencies</i>"]
-    Root --> WorkflowMMD["📄 workflow_graph.mmd <br/><i>Mermaid workflow graph logic</i>"]
-    Root --> Readme["📄 README.md <br/><i>Project documentation</i>"]
-```
+agentic_profile_match/
+├── app.py                 # Streamlit UI & Stateful Chat Router
+├── matching_agent.py      # LangGraph Workflow Definition & Nodes
+├── job_matcher.py         # ChromaDB Vector Query Engine & Hybrid Scoring
+├── resume_rag.py          # PDF Parsing & Vector Database Builder
+├── graph.py               # Helper script to export Mermaid workflow diagram
+├── chroma_db/             # Persistent ChromaDB storage (auto-created)
+├── resumes/               # Directory containing candidate PDF resumes
+├── .env                   # Environment variables (OpenAI API keys)
+├── requirements.txt       # Project dependencies
+├── workflow_graph.mmd     # Mermaid workflow graph logic
+└── README.md              # Project documentation
 
 🚀 Quickstart
 ```Bash
